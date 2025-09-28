@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "bruce.app"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "bruce.app"
@@ -18,6 +18,10 @@ android {
             useSupportLibrary = true
         }
 
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.15"
     }
 
     buildTypes {
@@ -60,7 +64,8 @@ dependencies {
     implementation(libs.androidx.material3)
     implementation(libs.usbserialforandroid)
     implementation(project(":esptool-android"))
-    
+    implementation(libs.androidx.preference)
     // Coroutines for async operations
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.navigation.compose)
 }

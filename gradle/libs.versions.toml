@@ -1,6 +1,6 @@
 [versions]
 agp = "8.5.2"
-kotlin = "1.7.20"
+kotlin = "1.9.25"
 core-ktx = "1.13.1"
 lifecycle-runtime-ktx = "2.8.6"
 activity-compose = "1.9.2"
@@ -9,6 +9,10 @@ usbserialforandroidVersion = "3.8.0"
 kotlinBom = "1.8.0"
 appcompat = "1.0.2"
 material = "1.12.0"
+navigationRuntimeKtx = "2.9.5"
+preference = "1.2.1"
+coroutines = "1.7.3"
+navigationCompose = "2.9.5"
 
 
 [libraries]
@@ -23,10 +27,10 @@ androidx-material3 = { group = "androidx.compose.material3", name = "material3" 
 usbserialforandroid = { module = "com.github.mik3y:usb-serial-for-android", version.ref = "usbserialforandroidVersion" }
 kotlin-bom = { group = "org.jetbrains.kotlin", name = "kotlin-bom", version.ref = "kotlinBom" }
 androidx-appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
-material = { group = "com.google.android.material", name = "material", version.ref = "material" }
+androidx-preference = { group = "androidx.preference", name = "preference", version.ref = "preference" }
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
 
 [plugins]
-android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 android-library = { id = "com.android.library", version.ref = "agp" }
-
