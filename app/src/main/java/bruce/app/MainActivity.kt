@@ -1,22 +1,36 @@
 package bruce.app
 
+import Pages
+import ScreenRender
 import android.Manifest
+import android.content.ContentValues
 import android.content.Intent
+import android.content.res.Configuration
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
 import android.net.Uri
 import android.os.Bundle
+import android.webkit.HttpAuthHandler
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.net.URL
-import org.json.JSONObject
-import org.json.JSONArray
+import androidx.annotation.RequiresPermission
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -24,44 +38,63 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material.icons.filled.ShoppingCart
+import androidx.compose.material.icons.filled.Usb
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import androidx.compose.ui.viewinterop.AndroidView
-import android.webkit.WebView
-import android.webkit.WebViewClient
-import android.webkit.HttpAuthHandler
-import bruce.app.Main
-import bruce.app.ui.theme.*
-import java.io.File
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
-import android.content.ContentValues
-import android.content.pm.PackageManager
-import android.content.res.Configuration
-import androidx.annotation.RequiresPermission
-import androidx.compose.material.icons.filled.ShoppingCart
-import androidx.compose.ui.text.font.FontWeight
-import androidx.core.app.ActivityCompat
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import bruce.app.ui.theme.Black
+import bruce.app.ui.theme.DarkGray
+import bruce.app.ui.theme.FirmwareFlasherTheme
+import bruce.app.ui.theme.LightGray
+import bruce.app.ui.theme.PurpleAccent
+import bruce.app.ui.theme.PurpleGrey80
+import bruce.app.ui.theme.White
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.json.JSONObject
+import java.io.File
+import java.net.URL
 
 data class DeviceInfo(
     val id: String,
@@ -147,10 +180,11 @@ class MainActivity : ComponentActivity() {
     }
 
     @Composable
-    @RequiresPermission(android.Manifest.permission.BLUETOOTH_SCAN)
+    @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun MainScreen() {
         val navController = rememberNavController()
         var bleConnection by remember { mutableStateOf<BLEConnection?>(null) }
+        var bleClicked by remember { mutableStateOf(false) } // To trigger BLE device list refresh
 
         NavHost(
             navController = navController,
@@ -158,7 +192,7 @@ class MainActivity : ComponentActivity() {
             modifier = Modifier
                 .fillMaxSize()
         ) {
-            composable(route = Pages.MainPage) {
+            composable(route = Pages.MainPage) @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT) {
                 val context = LocalContext.current
                 val configuration = LocalConfiguration.current
                 val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -183,15 +217,78 @@ class MainActivity : ComponentActivity() {
 
 
                 var useUSBConnection by remember { mutableStateOf(true) }
-                var bleClicked by remember { mutableStateOf(false) } // To trigger BLE device list refresh
 
                 // Serial communication
                 var serialCommunication by remember { mutableStateOf<SerialCommunication?>(null) }
                 var dbHelper by remember { mutableStateOf<CustomCommandsDatabaseHelper?>(null) }
+                val store = KvStore()
+                val deviceReady = remember { mutableStateOf(false) }
+                val tmp = store.read("ble_device")
+                var res by remember { mutableStateOf(tmp) }
+                val scanResult = remember { mutableStateOf(listOf(BLEDevice("", ""))) }
+                var bleDeviceConnected by remember { mutableStateOf(false) }
 
+                if(bleClicked && !bleDeviceConnected) {
+                    if(res != null && bleConnection != null) {
+                        println("Setup BLE...")
+                        bleConnection?.Setup()
+                        LaunchedEffect(Unit) {
+                            println("Start scanning...")
+                            while(scanResult.value.none { it.address == res } || deviceReady.value) {
+                                println("Scanning...")
+                                scanResult.value = bleConnection!!.getScanResult()
+                                delay(300)
+                            }
+                            println("Found saved device!")
+                            deviceReady.value = true
+                        }
 
-                if(bleClicked) {
-                    bleConnection?.Setup(navController)
+                        if(deviceReady.value) {
+                            println("Connecting to saved device...")
+                            ConnectToBLEDevice(bleConnection!!, navController, res!!, false)
+                            LaunchedEffect(Unit) {
+                                while(!bleConnection!!.isBLEConnected()) {
+                                    delay(300)
+                                }
+                                bleDeviceConnected = true
+                                bleConnection?.stopScan()
+                              //  bleClicked = false
+                            }
+                        }
+                        AlertDialog(
+                            onDismissRequest = {},
+                            properties = DialogProperties(
+                                dismissOnBackPress = false,
+                                dismissOnClickOutside = false
+                            ),
+                            title = null,
+                            confirmButton = {},
+                            text = {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    CircularProgressIndicator(
+                                        modifier = Modifier.size(48.dp),
+                                        strokeWidth = 4.dp,
+                                        color = MaterialTheme.colorScheme.primary
+                                    )
+                                    Spacer(Modifier.height(16.dp))
+                                    Text(
+                                        "Scanning for saved Bruce device...",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Button({
+                                        res = null
+                                    }) {
+                                        Text("Cancel")
+                                    }
+                                }
+                            }
+                        )
+                    } else if(!bleDeviceConnected) {
+                        bleConnection?.Setup(navController)
+                    }
                 }
 
                 if(useUSBConnection) {
@@ -329,11 +426,20 @@ class MainActivity : ComponentActivity() {
                                     RoundedCornerShape(8.dp)
                                 )
                         ) {
-                            Icon(
-                                Icons.Default.ShoppingCart,
-                                contentDescription = "Switch communication",
-                                tint = White
-                            )
+                            if(useUSBConnection)
+                                Icon(
+                                    Icons.Filled.Bluetooth,
+                                    contentDescription = "Switch communication",
+                                    tint = White
+                                )
+                            else {
+                                Icon(
+                                    Icons.Filled.Usb,
+                                    contentDescription = "Switch communication",
+                                    tint = White
+                                )
+                            }
+
                         }
                         IconButton(
                             onClick = { showBaudRateDialog = true },
@@ -364,6 +470,10 @@ class MainActivity : ComponentActivity() {
                                 tint = White
                             )
                         }
+                    }
+
+                    if(bleDeviceConnected) {
+                        ScreenRender(bleConnection!!)
                     }
 
                     // Device Selection Dialog
@@ -774,8 +884,6 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         }
-
-                    } else {
 
                     }
 
@@ -1425,6 +1533,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
             composable(route = Pages.BLEDevicesList) {
+                bleClicked = false
                 bleConnection?.let { BLEDevicesView(navController, it) }
             }
         }

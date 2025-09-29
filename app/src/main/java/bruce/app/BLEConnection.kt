@@ -394,7 +394,6 @@ fun initBLEConnection(): BLEConnection {
     return BLEConnection()
 }
 
-
 @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
 @Composable
 fun ConnectToBLEDevice(bleConnection: BLEConnection, navController: NavController, deviceAddress: String, showDialog: Boolean = true) {
