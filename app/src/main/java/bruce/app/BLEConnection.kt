@@ -388,6 +388,15 @@ class BLEConnection {
             Log.e("BruceBLE", "Service not found")
         }
     }
+
+    // Disconnect from the connected bluetooth device
+    @RequiresPermission(Manifest.permission.BLUETOOTH_CONNECT)
+    fun disconnect() {
+        if (this::gattDevice.isInitialized) {
+            gattDevice.disconnect()
+            gattDevice.close()
+        }
+    }
 }
 
 fun initBLEConnection(): BLEConnection {

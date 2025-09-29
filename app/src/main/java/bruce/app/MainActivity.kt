@@ -416,8 +416,14 @@ class MainActivity : ComponentActivity() {
                             onClick = {
                                 useUSBConnection = !useUSBConnection
                                 if(!useUSBConnection) {
-                                    bleConnection = initBLEConnection()
+                                    if(bleConnection == null)
+                                        bleConnection = initBLEConnection()
                                     bleClicked = true
+                                } else {
+                                    bleConnection?.disconnect()
+                                    bleClicked = false
+                                    bleDeviceConnected = false
+                                    deviceReady.value = false
                                 }
                             },
                             modifier = Modifier
@@ -439,7 +445,6 @@ class MainActivity : ComponentActivity() {
                                     tint = White
                                 )
                             }
-
                         }
                         IconButton(
                             onClick = { showBaudRateDialog = true },
