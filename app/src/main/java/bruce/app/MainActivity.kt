@@ -1,5 +1,6 @@
 package bruce.app
 
+import DocDialog
 import Pages
 import ScreenRender
 import android.Manifest
@@ -80,6 +81,16 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import bruce.app.ui.components.BaudRateDialog
+import bruce.app.ui.components.BluetoothConnectDialog
+import bruce.app.ui.components.BruceIconButton
+import bruce.app.ui.components.CommandChip
+import bruce.app.ui.components.CustomDialogComponent
+import bruce.app.ui.components.DeleteCommandComponent
+import bruce.app.ui.components.EmptyCommand
+import bruce.app.ui.components.InstallCompleteDialog
+import bruce.app.ui.components.UploadingSpinner
+import bruce.app.ui.components.showWebViewDialogCredentials
 import bruce.app.ui.theme.Black
 import bruce.app.ui.theme.DarkGray
 import bruce.app.ui.theme.FirmwareFlasherTheme
@@ -199,7 +210,6 @@ class MainActivity : ComponentActivity() {
                 val isTablet = configuration.screenWidthDp >= 600
                 var terminalOutput by remember { mutableStateOf(listOf("Terminal ready...")) }
                 var showDocDialog by remember { mutableStateOf(false) }
-                var showWebView by remember { mutableStateOf(false) }
                 var showWebViewCredentials by remember { mutableStateOf(false) }
                 var showDeviceDialog by remember { mutableStateOf(false) }
                 var serialCommand by remember { mutableStateOf("") }
@@ -255,38 +265,8 @@ class MainActivity : ComponentActivity() {
                               //  bleClicked = false
                             }
                         }
-                        AlertDialog(
-                            onDismissRequest = {},
-                            properties = DialogProperties(
-                                dismissOnBackPress = false,
-                                dismissOnClickOutside = false
-                            ),
-                            title = null,
-                            confirmButton = {},
-                            text = {
-                                Column(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(48.dp),
-                                        strokeWidth = 4.dp,
-                                        color = MaterialTheme.colorScheme.primary
-                                    )
-                                    Spacer(Modifier.height(16.dp))
-                                    Text(
-                                        "Scanning for saved Bruce device...",
-                                        style = MaterialTheme.typography.bodyMedium
-                                    )
-                                    Button({
-                                        res = null
-                                    }) {
-                                        Text("Cancel")
-                                    }
-                                }
-                            }
-                        )
-                    } else if(!bleDeviceConnected) {
+                        BluetoothConnectDialog({ res = null })
+                    } else {
                         bleConnection?.Setup(navController)
                     }
                 }
@@ -378,26 +358,7 @@ class MainActivity : ComponentActivity() {
 
                             // Loading indicator below action buttons
                             if (isUploading) {
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 8.dp),
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    CircularProgressIndicator(
-                                        modifier = Modifier.size(20.dp),
-                                        color = PurpleAccent,
-                                        strokeWidth = 2.dp
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Please wait...",
-                                        color = White,
-                                        fontSize = 16.sp
-                                    )
-                                }
+                                UploadingSpinner()
                             }
 
                             Spacer(modifier = Modifier.weight(1f))
@@ -412,7 +373,7 @@ class MainActivity : ComponentActivity() {
                             .padding(top = 60.dp, end = 16.dp, bottom = 16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        IconButton(
+                        BruceIconButton(
                             onClick = {
                                 useUSBConnection = !useUSBConnection
                                 if(!useUSBConnection) {
@@ -426,55 +387,19 @@ class MainActivity : ComponentActivity() {
                                     deviceReady.value = false
                                 }
                             },
-                            modifier = Modifier
-                                .background(
-                                    PurpleAccent,
-                                    RoundedCornerShape(8.dp)
-                                )
-                        ) {
-                            if(useUSBConnection)
-                                Icon(
-                                    Icons.Filled.Bluetooth,
-                                    contentDescription = "Switch communication",
-                                    tint = White
-                                )
-                            else {
-                                Icon(
-                                    Icons.Filled.Usb,
-                                    contentDescription = "Switch communication",
-                                    tint = White
-                                )
-                            }
-                        }
-                        IconButton(
+                            icon = if(useUSBConnection) Icons.Filled.Bluetooth else Icons.Filled.Usb,
+                            contentDescription = "Switch communication"
+                        )
+                        BruceIconButton(
                             onClick = { showBaudRateDialog = true },
-                            modifier = Modifier
-                                .background(
-                                    PurpleAccent,
-                                    RoundedCornerShape(8.dp)
-                                )
-                        ) {
-                            Icon(
-                                Icons.Default.Settings,
-                                contentDescription = "Configuration",
-                                tint = White
-                            )
-                        }
-
-                        IconButton(
+                            icon = Icons.Default.Settings,
+                            contentDescription = "Configuration"
+                        )
+                        BruceIconButton(
                             onClick = { showDocDialog = true },
-                            modifier = Modifier
-                                .background(
-                                    PurpleAccent,
-                                    RoundedCornerShape(8.dp)
-                                )
-                        ) {
-                            Icon(
-                                Icons.Default.Info,
-                                contentDescription = "Documentation",
-                                tint = White
-                            )
-                        }
+                            icon = Icons.Default.Info,
+                            contentDescription = "Documentation"
+                        )
                     }
 
                     if(bleDeviceConnected) {
@@ -893,221 +818,15 @@ class MainActivity : ComponentActivity() {
                     }
 
                     // WebView Credentials Dialog
-                    if (showWebViewCredentials) {
-                        Dialog(onDismissRequest = { showWebViewCredentials = false }) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = DarkGray)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Bruce WebView Authentication",
-                                        color = White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(8.dp))
-
-                                    Text(
-                                        text = "Connect to Bruce WebUI WiFi before!",
-                                        color = White,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    var username by remember { mutableStateOf("admin") }
-                                    var password by remember { mutableStateOf("bruce") }
-
-                                    OutlinedTextField(
-                                        value = username,
-                                        onValueChange = { username = it },
-                                        label = { Text("Username", color = White) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = White,
-                                            unfocusedTextColor = White,
-                                            focusedBorderColor = PurpleAccent,
-                                            unfocusedBorderColor = LightGray,
-                                            focusedLabelColor = PurpleAccent,
-                                            unfocusedLabelColor = White
-                                        )
-                                    )
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    OutlinedTextField(
-                                        value = password,
-                                        onValueChange = { password = it },
-                                        label = { Text("Password", color = White) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = White,
-                                            unfocusedTextColor = White,
-                                            focusedBorderColor = PurpleAccent,
-                                            unfocusedBorderColor = LightGray,
-                                            focusedLabelColor = PurpleAccent,
-                                            unfocusedLabelColor = White
-                                        )
-                                    )
-
-                                    Spacer(modifier = Modifier.height(20.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Button(
-                                            onClick = { showWebViewCredentials = false },
-                                            modifier = Modifier.weight(1f),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = LightGray,
-                                                contentColor = Black
-                                            )
-                                        ) { Text("Cancel") }
-
-                                        Button(
-                                            onClick = {
-                                                showWebViewCredentials = false
-                                                showWebView = true
-                                            },
-                                            modifier = Modifier.weight(1f),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = PurpleAccent,
-                                                contentColor = White
-                                            )
-                                        ) { Text("Connect") }
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    // WebView Dialog (fullscreen)
-                    if (showWebView) {
-                        Dialog(
-                            onDismissRequest = { showWebView = false },
-                            properties = DialogProperties(usePlatformDefaultWidth = false)
-                        ) {
-                            var username by remember { mutableStateOf("admin") }
-                            var password by remember { mutableStateOf("bruce") }
-
-                            AndroidView(
-                                modifier = Modifier.fillMaxSize(),
-                                factory = { ctx ->
-                                    WebView(ctx).apply {
-                                        settings.javaScriptEnabled = true
-                                        settings.domStorageEnabled = true
-                                        webViewClient = object : WebViewClient() {
-                                            override fun onReceivedHttpAuthRequest(
-                                                view: WebView?,
-                                                handler: HttpAuthHandler?,
-                                                host: String?,
-                                                realm: String?
-                                            ) {
-                                                if (!username.isNullOrEmpty() && !password.isNullOrEmpty()) {
-                                                    handler?.proceed(username, password)
-                                                } else {
-                                                    handler?.cancel()
-                                                }
-                                            }
-                                        }
-                                        // Note: setHttpAuthUsernamePassword is deprecated, using WebViewClient instead
-                                        loadUrl("http://bruce.local")
-                                    }
-                                }
-                            )
-                        }
+                    if(showWebViewCredentials) {
+                        showWebViewDialogCredentials(onShowComponentChange = { showWebViewCredentials = it })
                     }
 
                     // Baud Rate Configuration Dialog
                     if (showBaudRateDialog) {
-                        Dialog(onDismissRequest = { showBaudRateDialog = false }) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = DarkGray)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Baud Rate Configuration",
-                                        color = White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Text(
-                                        text = "Select baud rate for serial communication:",
-                                        color = White,
-                                        fontSize = 14.sp
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    // Common baud rates
-                                    val baudRates = listOf("9600", "19200", "38400", "57600", "115200", "230400", "460800", "921600", "1000000")
-
-                                    LazyColumn(
-                                        modifier = Modifier.height(200.dp)
-                                    ) {
-                                        items(baudRates) { rate ->
-                                            Card(
-                                                modifier = Modifier
-                                                    .fillMaxWidth()
-                                                    .padding(vertical = 4.dp),
-                                                colors = CardDefaults.cardColors(
-                                                    containerColor = if (rate == baudRate) PurpleAccent else LightGray
-                                                )
-                                            ) {
-                                                TextButton(
-                                                    onClick = {
-                                                        baudRate = rate
-                                                        serialCommunication?.setBaudRate(rate.toInt())
-                                                    },
-                                                    modifier = Modifier.fillMaxWidth()
-                                                ) {
-                                                    Text(
-                                                        text = rate,
-                                                        color = White,
-                                                        fontWeight = if (rate == baudRate) FontWeight.Bold else FontWeight.Normal
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Text(
-                                        text = "Current: $baudRate bps",
-                                        color = PurpleAccent,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Button(
-                                        onClick = { showBaudRateDialog = false },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = PurpleAccent,
-                                            contentColor = White
-                                        )
-                                    ) {
-                                        Text("Apply")
-                                    }
-                                }
-                            }
-                        }
+                        BaudRateDialog(serialCommunication,  onBaudRateChange = { newRate ->
+                            baudRate = newRate
+                        }, onDismiss = { showBaudRateDialog = it }, baudRate)
                     }
 
                     // Serial Commands Dialog
@@ -1143,28 +862,7 @@ class MainActivity : ComponentActivity() {
                                     Spacer(modifier = Modifier.height(16.dp))
 
                                     if (customCommands.isEmpty()) {
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .height(200.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Column(
-                                                horizontalAlignment = Alignment.CenterHorizontally
-                                            ) {
-                                                Text(
-                                                    text = "No custom commands yet",
-                                                    color = White.copy(alpha = 0.7f),
-                                                    fontSize = 14.sp
-                                                )
-                                                Spacer(modifier = Modifier.height(8.dp))
-                                                Text(
-                                                    text = "Tap '+ Add' to create your first command",
-                                                    color = White.copy(alpha = 0.5f),
-                                                    fontSize = 12.sp
-                                                )
-                                            }
-                                        }
+                                        EmptyCommand()
                                     } else {
                                         LazyColumn(
                                             modifier = Modifier.weight(1f, fill = false)
@@ -1186,19 +884,7 @@ class MainActivity : ComponentActivity() {
                                                         Column(
                                                             modifier = Modifier.weight(1f)
                                                         ) {
-                                                            Text(
-                                                                text = cmd.name,
-                                                                color = PurpleAccent,
-                                                                fontSize = 14.sp,
-                                                                fontWeight = FontWeight.Bold
-                                                            )
-                                                            Spacer(modifier = Modifier.height(2.dp))
-                                                            Text(
-                                                                text = cmd.command,
-                                                                color = White,
-                                                                fontSize = 12.sp,
-                                                                fontFamily = FontFamily.Monospace
-                                                            )
+                                                            CommandChip(cmd)
                                                         }
 
                                                         Row {
@@ -1220,20 +906,11 @@ class MainActivity : ComponentActivity() {
 
                                                             Spacer(modifier = Modifier.width(2.dp))
 
-                                                            IconButton(
-                                                                onClick = {
-                                                                    dbHelper?.deleteCommand(cmd.id)
-                                                                    customCommands = customCommands.filter { it.id != cmd.id }
-                                                                },
-                                                                modifier = Modifier.size(32.dp)
-                                                            ) {
-                                                                Icon(
-                                                                    Icons.Default.Close,
-                                                                    contentDescription = "Delete",
-                                                                    tint = White,
-                                                                    modifier = Modifier.size(18.dp)
-                                                                )
-                                                            }
+                                                            DeleteCommandComponent(dbHelper, cmd, onDelete = { deletedCmd ->
+                                                                customCommands =
+                                                                    customCommands.filter { it.id != deletedCmd.id }
+                                                                }
+                                                            )
                                                         }
                                                     }
                                                 }
@@ -1290,250 +967,19 @@ class MainActivity : ComponentActivity() {
 
                     // Add Custom Command Dialog
                     if (showAddCustomCmdDialog) {
-                        Dialog(onDismissRequest = { showAddCustomCmdDialog = false }) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = DarkGray)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Add Custom Command",
-                                        color = White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    var commandName by remember { mutableStateOf("") }
-                                    var commandText by remember { mutableStateOf("") }
-
-                                    OutlinedTextField(
-                                        value = commandName,
-                                        onValueChange = { commandName = it },
-                                        label = { Text("Command Name", color = White) },
-                                        placeholder = { Text("e.g., LED On", color = White.copy(alpha = 0.5f)) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = White,
-                                            unfocusedTextColor = White,
-                                            focusedBorderColor = PurpleAccent,
-                                            unfocusedBorderColor = LightGray,
-                                            focusedLabelColor = PurpleAccent,
-                                            unfocusedLabelColor = White
-                                        )
-                                    )
-
-                                    Spacer(modifier = Modifier.height(12.dp))
-
-                                    OutlinedTextField(
-                                        value = commandText,
-                                        onValueChange = { commandText = it },
-                                        label = { Text("Serial Command", color = White) },
-                                        placeholder = { Text("e.g., led r 255", color = White.copy(alpha = 0.5f)) },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = OutlinedTextFieldDefaults.colors(
-                                            focusedTextColor = White,
-                                            unfocusedTextColor = White,
-                                            focusedBorderColor = PurpleAccent,
-                                            unfocusedBorderColor = LightGray,
-                                            focusedLabelColor = PurpleAccent,
-                                            unfocusedLabelColor = White
-                                        )
-                                    )
-
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    Text(
-                                        text = "Examples:",
-                                        color = PurpleAccent,
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = "• Name: 'LED Red' → Command: 'led r 255'",
-                                        color = White.copy(alpha = 0.7f),
-                                        fontSize = 11.sp
-                                    )
-                                    Text(
-                                        text = "• Name: 'Say Hello' → Command: 'say Hello World'",
-                                        color = White.copy(alpha = 0.7f),
-                                        fontSize = 11.sp
-                                    )
-                                    Text(
-                                        text = "• Name: 'IR Send' → Command: 'ir tx NEC 04000000'",
-                                        color = White.copy(alpha = 0.7f),
-                                        fontSize = 11.sp
-                                    )
-
-                                    Spacer(modifier = Modifier.height(20.dp))
-
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth(),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        Button(
-                                            onClick = { showAddCustomCmdDialog = false },
-                                            modifier = Modifier.weight(1f),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = LightGray,
-                                                contentColor = Black
-                                            )
-                                        ) {
-                                            Text("Cancel")
-                                        }
-
-                                        Button(
-                                            onClick = {
-                                                if (commandName.isNotEmpty() && commandText.isNotEmpty()) {
-                                                    val newCommand = CustomSerialCommand(
-                                                        id = System.currentTimeMillis().toString(),
-                                                        name = commandName,
-                                                        command = commandText
-                                                    )
-                                                    dbHelper?.insertCommand(newCommand)
-                                                    customCommands = customCommands + newCommand
-                                                    showAddCustomCmdDialog = false
-                                                }
-                                            },
-                                            modifier = Modifier.weight(1f),
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = PurpleAccent,
-                                                contentColor = White
-                                            )
-                                        ) {
-                                            Text("Add Command")
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                        CustomDialogComponent(dbHelper, onDismiss = { showAddCustomCmdDialog = it }, onNewCustomCommand = { newCmd ->
+                            customCommands = customCommands + newCmd
+                        })
                     }
 
                     // Documentation Dialog
                     if (showDocDialog) {
-                        Dialog(onDismissRequest = { showDocDialog = false }) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = DarkGray)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp)
-                                ) {
-                                    Text(
-                                        text = "Documentation",
-                                        color = White,
-                                        fontSize = 18.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Button(
-                                            onClick = {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://bruce.computer"))
-                                                context.startActivity(intent)
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = PurpleGrey80,
-                                                contentColor = White
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { Text("Open https://bruce.computer") }
-
-                                        Button(
-                                            onClick = {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/pr3y/Bruce/wiki/Serial"))
-                                                context.startActivity(intent)
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = PurpleGrey80,
-                                                contentColor = White
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { Text("Open Serial Wiki") }
-
-                                        Button(
-                                            onClick = {
-                                                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/pr3y/BruceApp"))
-                                                context.startActivity(intent)
-                                            },
-                                            colors = ButtonDefaults.buttonColors(
-                                                containerColor = PurpleGrey80,
-                                                contentColor = White
-                                            ),
-                                            modifier = Modifier.fillMaxWidth()
-                                        ) { Text("BruceApp repo") }
-
-                                    }
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Button(
-                                        onClick = { showDocDialog = false },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = PurpleAccent,
-                                            contentColor = White
-                                        )
-                                    ) {
-                                        Text("Close")
-                                    }
-                                }
-                            }
-                        }
+                        DocDialog(onShowComponentChange = { showDocDialog = it })
                     }
 
                     // Installation Complete Dialog
                     if (showInstallationCompleteDialog) {
-                        Dialog(onDismissRequest = { showInstallationCompleteDialog = false }) {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                colors = CardDefaults.cardColors(containerColor = DarkGray)
-                            ) {
-                                Column(
-                                    modifier = Modifier.padding(24.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    Text(
-                                        text = "Installation finished",
-                                        color = White,
-                                        fontSize = 20.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(16.dp))
-                                    Text(
-                                        text = "Bruce Firmware Updated!",
-                                        color = White,
-                                        fontSize = 14.sp,
-                                        textAlign = TextAlign.Center
-                                    )
-                                    Spacer(modifier = Modifier.height(24.dp))
-                                    Button(
-                                        onClick = { showInstallationCompleteDialog = false },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(50.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = PurpleAccent,
-                                            contentColor = White
-                                        ),
-                                        shape = RoundedCornerShape(12.dp)
-                                    ) {
-                                        Text(
-                                            text = "OK",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold
-                                        )
-                                    }
-                                }
-                            }
-                        }
+                        InstallCompleteDialog(onShowComponentChange = { showInstallationCompleteDialog = it })
                     }
                 }
             }
@@ -1546,122 +992,6 @@ class MainActivity : ComponentActivity() {
 
     }
 
-    private fun uploadFirmware(context: android.content.Context, deviceId: String, baudRate: String, onStatusChange: (String) -> Unit, onLoadingChange: (Boolean) -> Unit, onInstallationComplete: () -> Unit) {
-        onLoadingChange(true)
-        onStatusChange("Starting firmware download for device: $deviceId...")
-        
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                // Download firmware from GitHub
-                withContext(Dispatchers.Main) {
-                    onStatusChange("Downloading firmware from GitHub...")
-                }
-                val firmwareUrl = "https://github.com/pr3y/Bruce/releases/download/1.11/Bruce-$deviceId.bin"
-                val firmwareData = downloadFirmware(firmwareUrl)
-                
-                withContext(Dispatchers.Main) {
-                    onStatusChange("Firmware downloaded (${firmwareData.size} bytes)")
-                    onStatusChange("Saving firmware to temporary file...")
-                }
-                
-                // Save downloaded firmware to temp file
-                val firmwarePath = saveAsFile(firmwareData)
-                
-                withContext(Dispatchers.Main) {
-                    onStatusChange("Firmware saved to: $firmwarePath")
-                    onStatusChange("Preparing esptool with arguments:")
-                    onStatusChange("   Chip: ESP32-S3")
-                    onStatusChange("   Baud Rate: $baudRate bps")
-                    onStatusChange("   File: ${firmwarePath.substringAfterLast("/")}")
-                    onStatusChange("Checking USB connection...")
-                }
-                
-                // Flash the firmware
-                val argument = "--chip esp32s3 --baud $baudRate --before default_reset --after hard_reset --no-stub write_flash -z 0x0 $firmwarePath"
-                
-                withContext(Dispatchers.Main) {
-                    onStatusChange("Starting firmware upload process...")
-                    onStatusChange("Executing: esptool $argument")
-                }
-                
-                val result = Main().uploadFirmware(context, argument)
-                
-                withContext(Dispatchers.Main) {
-                    onStatusChange("Raw result: $result")
-                    
-                    // Parse and display the captured output line by line
-                    if (result.isNotEmpty() && result != "Success") {
-                        val lines = result.split("\n").filter { it.isNotEmpty() }
-                        onStatusChange("Found ${lines.size} lines of output")
-                        lines.forEach { line ->
-                            onStatusChange("ESPTool: $line")
-                        }
-                    }
-                    
-                    if (result.contains("Success", ignoreCase = true) || result.contains("completed successfully", ignoreCase = true)) {
-                        onStatusChange("Firmware upload completed successfully!")
-                        onStatusChange("Device should restart automatically...")
-                        onInstallationComplete()
-                    } else if (result.contains("Exception", ignoreCase = true)) {
-                        onStatusChange("Upload failed with error: $result")
-                    } else {
-                        onStatusChange("Firmware Updated!")
-                        onInstallationComplete()
-                    }
-                    onLoadingChange(false)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    onStatusChange("Error during upload: ${e.message}")
-                    onStatusChange("Check USB connection and try again")
-                    onLoadingChange(false)
-                }
-            }
-        }
-    }
-    
-    private fun loadDeviceList(onResult: (List<DeviceInfo>) -> Unit) {
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val jsonUrl = "https://raw.githubusercontent.com/pr3y/Bruce/refs/heads/WebPage/src/lib/data/manifests.json"
-                val jsonString = URL(jsonUrl).readText()
-                val jsonObject = JSONObject(jsonString)
-                val deviceList = mutableListOf<DeviceInfo>()
-                
-                // Parse each category
-                jsonObject.keys().forEach { category ->
-                    val categoryArray = jsonObject.getJSONArray(category)
-                    for (i in 0 until categoryArray.length()) {
-                        val device = categoryArray.getJSONObject(i)
-                        deviceList.add(
-                            DeviceInfo(
-                                id = device.getString("id"),
-                                name = device.getString("name"),
-                                category = category
-                            )
-                        )
-                    }
-                }
-                
-                withContext(Dispatchers.Main) {
-                    onResult(deviceList)
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    onResult(emptyList())
-                }
-            }
-        }
-    }
-    
-    private suspend fun downloadFirmware(url: String): ByteArray {
-        return withContext(Dispatchers.IO) {
-            URL(url).openStream().use { inputStream ->
-                inputStream.readBytes()
-            }
-        }
-    }
-
     @Preview(showBackground = true)
     @Composable
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
@@ -1669,12 +999,5 @@ class MainActivity : ComponentActivity() {
         FirmwareFlasherTheme {
             MainScreen()
         }
-    }
-
-    private fun saveAsFile(content: ByteArray): String {
-        val tempFile = File.createTempFile("firmware", ".bin")
-        tempFile.writeBytes(content)
-        println("Temp File Byte Count: ${tempFile.length()}")
-        return tempFile.absolutePath
     }
 }
