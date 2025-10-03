@@ -215,10 +215,6 @@ fun ScreenRender(bleConnection: BLEConnection) {
             modifier = Modifier.padding(4.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (screenInfo.value.invalidScreen()) {
-                Text("Waiting for screen info...")
-                return@Column
-            } else {
                 if (invalidView.value) {
                     Text("Invalid header received, can't render the screen")
                 }
@@ -258,9 +254,8 @@ fun ScreenRender(bleConnection: BLEConnection) {
                         parseFunction(func, funcArg)
                     }
                 }
-            }
-            NavigationWidget(bleConnection)
-            PowerWidget(bleConnection)
+                NavigationWidget(bleConnection)
+                PowerWidget(bleConnection)
         }
     }
 }

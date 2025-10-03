@@ -262,7 +262,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 bleDeviceConnected = true
                                 bleConnection?.stopScan()
-                              //  bleClicked = false
+                                bleClicked = false
                             }
                         }
                         BluetoothConnectDialog({ res = null })
