@@ -248,7 +248,12 @@ class BLEConnection {
                 println("Bluetooth permission granted")
                 EnableRequiredService()
                 serviceEnabled.value = true
-                scanDevices()
+                if(!bluetoothAdapter.isEnabled) {   // Start a callback to wait for Bluetooth to be enabled
+                    val filter = IntentFilter(BluetoothAdapter.ACTION_STATE_CHANGED)
+                    LocalContext.current.registerReceiver(bluetoothReceiver, filter)
+                } else {
+                    scanDevices()
+                }
                 navController.navigate(Pages.BLEDevicesList)
             } else {
                 println("Bluetooth permission not granted")
