@@ -194,8 +194,13 @@ class MainActivity : ComponentActivity() {
     @RequiresPermission(Manifest.permission.BLUETOOTH_SCAN)
     fun MainScreen() {
         val navController = rememberNavController()
+
+        // Put here states that must not be reset when navigating between pages
         var bleConnection by remember { mutableStateOf<BLEConnection?>(null) }
         var bleClicked by remember { mutableStateOf(false) } // To trigger BLE device list refresh
+        var useUSBConnection by remember { mutableStateOf(true) }
+        var bleDeviceConnected by remember { mutableStateOf(false) }
+        val deviceReady = remember { mutableStateOf(false) }
 
         NavHost(
             navController = navController,
@@ -225,18 +230,13 @@ class MainActivity : ComponentActivity() {
                 var customCommands by remember { mutableStateOf(listOf<CustomSerialCommand>()) }
                 val terminalListState = rememberLazyListState()
 
-
-                var useUSBConnection by remember { mutableStateOf(true) }
-
                 // Serial communication
                 var serialCommunication by remember { mutableStateOf<SerialCommunication?>(null) }
                 var dbHelper by remember { mutableStateOf<CustomCommandsDatabaseHelper?>(null) }
                 val store = KvStore()
-                val deviceReady = remember { mutableStateOf(false) }
                 val tmp = store.read("ble_device")
                 var res by remember { mutableStateOf(tmp) }
                 val scanResult = remember { mutableStateOf(listOf(BLEDevice("", ""))) }
-                var bleDeviceConnected by remember { mutableStateOf(false) }
 
                 if(bleClicked && !bleDeviceConnected) {
                     if(res != null && bleConnection != null) {
@@ -986,6 +986,14 @@ class MainActivity : ComponentActivity() {
             composable(route = Pages.BLEDevicesList) {
                 bleClicked = false
                 bleConnection?.let { BLEDevicesView(navController, it) }
+                LaunchedEffect(Unit) {
+                    while(!bleConnection!!.isBLEConnected()) {
+                        delay(300)
+                    }
+                    bleDeviceConnected = true
+                    bleConnection?.stopScan()
+                    bleClicked = false
+                }
             }
         }
 
