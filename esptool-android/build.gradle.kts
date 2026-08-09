@@ -42,6 +42,12 @@ chaquopy {
     version = "3.8"
 
     defaultConfig {
+        // Must match `version` above (3.8), or Chaquopy ships .py instead of .pyc
+        // and the device compiles esptool on first import (very slow first flash).
+        // Also: the system python3 (3.14) can't run Chaquopy 15's pip — it imports
+        // `cgi`, removed in 3.13.
+        buildPython("/home/user/.pyenv/versions/3.8.18/bin/python")
+
         pip {
             install("git+https://github.com/xCarlost/pyserial.git@b6adda109d814499a65c671ff60a888d479f3a3d")
             install("bitarray>=2.8.0")

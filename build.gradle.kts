@@ -8,3 +8,17 @@ plugins {
 tasks.register("clean", Delete::class) {
     delete(getLayout().getBuildDirectory())
 }
+
+// Desktop convenience tasks — delegate to the composite-included desktop build
+tasks.register("run") {
+    dependsOn(gradle.includedBuild("desktop").task(":run"))
+}
+tasks.register("packageReleaseAppImage") {
+    dependsOn(gradle.includedBuild("desktop").task(":packageReleaseAppImage"))
+}
+tasks.register("packageReleaseDmg") {
+    dependsOn(gradle.includedBuild("desktop").task(":packageReleaseDmg"))
+}
+tasks.register("packageReleaseExe") {
+    dependsOn(gradle.includedBuild("desktop").task(":packageReleaseExe"))
+}

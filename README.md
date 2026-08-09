@@ -1,39 +1,61 @@
 # :shark: Bruce App
 
-# Bruce Multi-platform App (Android/Desktop) for interacting with Bruce Firmware
+Multi-platform companion app for [Bruce Firmware](https://github.com/BruceDevices/Firmware) — flash firmware, run serial commands, and mirror the device screen live, all in one place.
 
 ![Bruce App](./assets/bruce_app_show.gif)
 
-## Building
-```
-./gradlew clean build
+---
+
+## Android
+
+**Debug APK**
+```bash
+./gradlew assembleDebug
+# output: app/build/outputs/apk/debug/app-debug.apk
 ```
 
-## Running on Desktop
+**Release APK**
+```bash
+./gradlew assembleRelease
+# output: app/build/outputs/apk/release/app-release.apk
 ```
+
+---
+
+## Desktop (Linux / macOS / Windows)
+
+Prerequisites: JDK 21+, Python 3 + esptool (`pip install esptool`) for firmware flashing.
+
+**Run locally**
+```bash
 ./gradlew run
 ```
 
-## Building APK
+**Package — Linux (.AppImage)**
+```bash
+./gradlew packageReleaseAppImage
+# output: desktop/build/compose/binaries/main-release/app-image/
 ```
-./gradlew build assembleRelease
+
+**Package — macOS (.dmg)**
+```bash
+./gradlew packageReleaseDmg
+# output: desktop/build/compose/binaries/main-release/dmg/
 ```
 
-This is a Kotlin Multiplatform project targeting Android, iOS, Desktop.
+**Package — Windows (.exe)**
+```bash
+./gradlew packageReleaseExe
+# output: desktop/build/compose/binaries/main-release/exe/
+```
 
-* `/composeApp` is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - `commonMain` is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    `iosMain` would be the right folder for such calls.
+> The desktop build lives in `desktop/` as a Gradle composite build.
+> You can also run tasks directly: `./gradlew --project-dir desktop run`
 
-* `/iosApp` contains iOS applications. Even if you’re sharing your UI with Compose Multiplatform, 
-  you need this entry point for your iOS app. This is also where you should add SwiftUI code for your project.
+---
 
-* `/shared` is for the code that will be shared between all targets in the project.
-  The most important subfolder is `commonMain`. If preferred, you can add code to the platform-specific folders here too.
+## Screen Mirror
 
-
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
-Firmware Flasher thanks to https://github.com/xCarlost/esptool-android
+The desktop app mirrors the Bruce device screen natively — no browser required.
+Enable **WebUI** on the device (connect to Bruce's WiFi AP), then enter the host
+(`bruce.local` or the device IP) in the Screen Mirror panel and press **Start Mirror**.

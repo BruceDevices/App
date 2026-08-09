@@ -208,7 +208,7 @@ class MainActivity : ComponentActivity() {
                         .height(60.dp)
                 ) {
                     Text(
-                        text = "Upload Firmware",
+                        text = "Install Firmware",
                         fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                         fontSize = 18.sp
                     )
@@ -1375,7 +1375,7 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) {
                     onStatusChange("Downloading firmware from GitHub...")
                 }
-                val firmwareUrl = "https://github.com/pr3y/Bruce/releases/download/1.11/Bruce-$deviceId.bin"
+                val firmwareUrl = "https://github.com/pr3y/Bruce/releases/download/1.16/Bruce-$deviceId.bin"
                 val firmwareData = downloadFirmware(firmwareUrl)
                 
                 withContext(Dispatchers.Main) {

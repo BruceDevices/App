@@ -1,0 +1,44 @@
+name: Desktop Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ published ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            task: packageReleaseAppImage
+          - os: macos-latest
+            task: packageReleaseDmg
+          - os: windows-latest
+            task: packageReleaseExe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Install AppImage dependencies
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y libfuse2
+
+      - name: Build desktop package
+        run: ./gradlew ${{ matrix.task }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: BruceApp-${{ matrix.os }}
+          path: desktop/build/compose/binaries/main-release/**
