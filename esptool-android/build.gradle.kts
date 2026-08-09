@@ -42,11 +42,16 @@ chaquopy {
     version = "3.8"
 
     defaultConfig {
-        // Must match `version` above (3.8), or Chaquopy ships .py instead of .pyc
-        // and the device compiles esptool on first import (very slow first flash).
-        // Also: the system python3 (3.14) can't run Chaquopy 15's pip — it imports
-        // `cgi`, removed in 3.13.
-        buildPython("/home/user/.pyenv/versions/3.8.18/bin/python")
+        // buildPython must match `version` above (3.8), or Chaquopy ships .py instead
+        // of .pyc and the device compiles esptool on first import (very slow first
+        // flash). Chaquopy 15's pip also can't run on Python 3.13+ (it imports `cgi`).
+        // CI runners' default python3 is fine, so only override when a local pyenv 3.8
+        // exists. If your system python3 is 3.13+, `pyenv install 3.8.18`.
+        // Must be 3.8 to match `version` above, or Chaquopy ships .py instead of .pyc
+        // and the phone compiles esptool on the first flash. On CI the workflow makes
+        // python3 itself 3.8, which Chaquopy finds on its own — this is just for here.
+        val localPy = "/home/user/.pyenv/versions/3.8.18/bin/python"
+        if (File(localPy).canExecute()) buildPython(localPy)
 
         pip {
             install("git+https://github.com/xCarlost/pyserial.git@b6adda109d814499a65c671ff60a888d479f3a3d")

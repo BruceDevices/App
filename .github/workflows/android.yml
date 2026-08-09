@@ -36,6 +36,23 @@ jobs:
       run: |
         yes | sdkmanager --licenses
 
+    # Chaquopy targets Python 3.8, and only emits .pyc when the build interpreter
+    # matches. Without this the APK ships .py and the phone compiles esptool on the
+    # first flash. Runner images no longer carry 3.8, so install it and make it python3.
+    - name: Set up Python 3.8 for Chaquopy
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        "$HOME/.local/bin/uv" python install --default 3.8.18
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Verify python3 is 3.8
+      run: |
+        python3 -V
+        python3 -V | grep -q '^Python 3\.8\.' || {
+          echo "::error::python3 is not 3.8 — Chaquopy would ship .py instead of .pyc"
+          exit 1
+        }
+
     - name: Build with Gradle
       run: ./gradlew clean assembleRelease
 

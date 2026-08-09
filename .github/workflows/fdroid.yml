@@ -30,6 +30,22 @@ jobs:
       run: |
         yes | sdkmanager --licenses || true
 
+    # Chaquopy targets Python 3.8 and only emits .pyc when the build interpreter
+    # matches; otherwise the released APK ships .py and the first flash is very slow.
+    - name: Set up Python 3.8 for Chaquopy
+      run: |
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        "$HOME/.local/bin/uv" python install --default 3.8.18
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Verify python3 is 3.8
+      run: |
+        python3 -V
+        python3 -V | grep -q '^Python 3\.8\.' || {
+          echo "::error::python3 is not 3.8 — Chaquopy would ship .py instead of .pyc"
+          exit 1
+        }
+
     - name: Build release APK
       run: |
         ./gradlew clean assembleRelease

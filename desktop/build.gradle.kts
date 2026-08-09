@@ -27,7 +27,15 @@ compose.desktop {
         mainClass = "bruce.app.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Exe, TargetFormat.AppImage)
+            // Only the host's own format: Compose rejects Dmg on Linux, AppImage on macOS, etc.
+            val hostOs = System.getProperty("os.name").lowercase()
+            targetFormats(
+                when {
+                    hostOs.startsWith("mac") -> TargetFormat.Dmg
+                    hostOs.startsWith("win") -> TargetFormat.Exe
+                    else -> TargetFormat.AppImage
+                }
+            )
             packageName = "BruceApp"
             packageVersion = "1.2.0"
             description = "Bruce Firmware Flasher"
