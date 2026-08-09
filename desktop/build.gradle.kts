@@ -26,6 +26,13 @@ compose.desktop {
     application {
         mainClass = "bruce.app.MainKt"
 
+        // Compose 1.7 ships ProGuard 7.2.2, which rejects Java 21 class files
+        // (version 65 > its max 62). Shrinking saves little next to the bundled
+        // JRE, and unminified avoids needing keep rules for jSerialComm/skiko.
+        buildTypes.release.proguard {
+            isEnabled.set(false)
+        }
+
         nativeDistributions {
             // Only the host's own format: Compose rejects Dmg on Linux, AppImage on macOS, etc.
             val hostOs = System.getProperty("os.name").lowercase()
