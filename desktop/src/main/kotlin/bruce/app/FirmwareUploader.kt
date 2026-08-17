@@ -40,7 +40,7 @@ object FirmwareUploader {
             try {
                 // Download firmware
                 emit("Downloading firmware for $deviceId...")
-                val firmwareUrl = "https://github.com/pr3y/Bruce/releases/download/1.16/Bruce-$deviceId.bin"
+                val firmwareUrl = "https://github.com/pr3y/Bruce/releases/download/1.16.1/Bruce-$deviceId.bin"
                 val firmwareData = URI(firmwareUrl).toURL().readBytes()
                 emit("Downloaded ${firmwareData.size} bytes")
 

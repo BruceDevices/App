@@ -33,6 +33,7 @@ import java.awt.Color as AwtColor
 import java.awt.Font as AwtFont
 import java.awt.Graphics2D
 import java.awt.RenderingHints
+import java.awt.geom.Arc2D
 import java.awt.image.BufferedImage
 
 // Render at 3× so text gets real pixels instead of 8-pixel blobs
@@ -156,22 +157,28 @@ private fun draw(packet: ByteArray, g: Graphics2D, sw: Int, sh: Int) {
             val startAngle = u16(packet, p+8)
             val endAngle   = u16(packet, p+10)
             val fgColor    = u16(packet, p+12)
-            val bgColor    = u16(packet, p+14)
-            // TFT_eSPI: larger value = outer ring, smaller = inner hole (regardless of param order)
+            // A ring segment, stroked — not a filled pie. Icons stack concentric arcs
+            // (WiFi waves, RF/LoRa/IR/RFID/BLE), so filling the hole with bgColor would
+            // wipe out the arcs drawn underneath. Matches the firmware's own renderer
+            // (sd_files/esp32_serial_navigator.html, case 12).
             val outerR = maxOf(r1, r2)
             val innerR = minOf(r1, r2)
+            val radius = (outerR + innerR) / 2.0
+            val band   = maxOf(1, outerR - innerR).toFloat()
             // TFT_eSPI: 0°=6 o'clock, clockwise → Java2D: 0°=3 o'clock, counter-clockwise.
             // south is -90° in Java2D, and CW is negative there: jAngle = -90 - tftAngle.
             // Handle wrap-through-0° for the extent.
             val jStart   = -90 - startAngle
             val cwExtent = if (endAngle >= startAngle) endAngle - startAngle else endAngle + 360 - startAngle
             val jExtent  = -cwExtent
+            val savedStroke = g.stroke
+            g.stroke = BasicStroke(band)
             g.color = rgb565(fgColor)
-            g.fillArc(cx - outerR, cy - outerR, 2 * outerR, 2 * outerR, jStart, jExtent)
-            if (innerR > 0) {
-                g.color = rgb565(bgColor)
-                g.fillArc(cx - innerR, cy - innerR, 2 * innerR, 2 * innerR, jStart, jExtent)
-            }
+            g.draw(Arc2D.Double(
+                cx - radius, cy - radius, radius * 2, radius * 2,
+                jStart.toDouble(), jExtent.toDouble(), Arc2D.OPEN
+            ))
+            g.stroke = savedStroke
         }
         Fn.DRAWWIDELINE -> {
             val ax = u16(packet, p);   val ay = u16(packet, p+2)

@@ -146,6 +146,8 @@ class MainActivity : ComponentActivity() {
         var showDocDialog by remember { mutableStateOf(false) }
         var showWebView by remember { mutableStateOf(false) }
         var showWebViewCredentials by remember { mutableStateOf(false) }
+        var showNavigatorMode by remember { mutableStateOf(false) }
+        var showUsbMirror by remember { mutableStateOf(false) }
         var showDeviceDialog by remember { mutableStateOf(false) }
         var serialCommand by remember { mutableStateOf("") }
         var selectedDevice by remember { mutableStateOf("m5stack-cardputer") }
@@ -222,7 +224,7 @@ class MainActivity : ComponentActivity() {
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Button(
-                        onClick = { showWebViewCredentials = true },
+                        onClick = { showNavigatorMode = true },
                         modifier = Modifier.weight(1f),
                         colors = ButtonDefaults.buttonColors(
                             containerColor = PurpleGrey80,
@@ -230,7 +232,7 @@ class MainActivity : ComponentActivity() {
                         ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
-                        Text("Bruce WebView")
+                        Text("Bruce Navigator")
                     }
                     
                     Button(
@@ -410,6 +412,8 @@ class MainActivity : ComponentActivity() {
                                     onClick = {
                                         showDeviceDialog = false
                                         terminalOutput = terminalOutput + "> Selected device: $selectedDevice"
+                                        // esptool opens the port itself — release ours first
+                                        serialCommunication?.disconnect()
                                         uploadFirmware(
                                             context = context,
                                             deviceId = selectedDevice,
@@ -716,6 +720,96 @@ class MainActivity : ComponentActivity() {
                             Text("Send")
                         }
                     }
+                }
+            }
+
+            // Navigator transport picker: WiFi WebUI vs USB OTG serial
+            if (showNavigatorMode) {
+                Dialog(onDismissRequest = { showNavigatorMode = false }) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = DarkGray)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Text(
+                                text = "Bruce Navigator",
+                                color = White,
+                                fontSize = 18.sp,
+                                fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "How do you want to reach the device?",
+                                color = White.copy(alpha = 0.7f),
+                                fontSize = 13.sp
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Button(
+                                onClick = {
+                                    showNavigatorMode = false
+                                    showWebViewCredentials = true
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = PurpleAccent,
+                                    contentColor = White
+                                )
+                            ) {
+                                Column {
+                                    Text("WiFi — WebUI", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                    Text("join the Bruce AP first", fontSize = 11.sp)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            Button(
+                                onClick = {
+                                    showNavigatorMode = false
+                                    showUsbMirror = true
+                                },
+                                modifier = Modifier.fillMaxWidth().height(56.dp),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = PurpleGrey80,
+                                    contentColor = White
+                                )
+                            ) {
+                                Column {
+                                    Text("USB OTG — screen mirror", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold)
+                                    Text("no WiFi needed, uses the serial cable", fontSize = 11.sp)
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(12.dp))
+
+                            Button(
+                                onClick = { showNavigatorMode = false },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = LightGray,
+                                    contentColor = White
+                                )
+                            ) { Text("Cancel") }
+                        }
+                    }
+                }
+            }
+
+            // USB OTG screen mirror (fullscreen)
+            if (showUsbMirror) {
+                Dialog(
+                    onDismissRequest = { showUsbMirror = false },
+                    properties = DialogProperties(usePlatformDefaultWidth = false)
+                ) {
+                    ScreenMirrorPanel(
+                        serial = serialCommunication,
+                        onClose = { showUsbMirror = false }
+                    )
                 }
             }
 
@@ -1375,7 +1469,7 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) {
                     onStatusChange("Downloading firmware from GitHub...")
                 }
-                val firmwareUrl = "https://github.com/pr3y/Bruce/releases/download/1.16/Bruce-$deviceId.bin"
+                val firmwareUrl = "https://github.com/pr3y/Bruce/releases/download/1.16.1/Bruce-$deviceId.bin"
                 val firmwareData = downloadFirmware(firmwareUrl)
                 
                 withContext(Dispatchers.Main) {

@@ -31,7 +31,10 @@ class AndroidSerialCommunication(private val context: Context) : SerialCommunica
     private var currentBaudRate = DEFAULT_BAUDRATE
     
     private var outputListener: ((String) -> Unit)? = null
-    
+    private var screenPacketListener: ((ByteArray) -> Unit)? = null
+    private var readThread: Thread? = null
+    @Volatile private var reading = false
+
     init {
         Log.d(TAG, "Initializing USB communication with baudrate: $currentBaudRate")
     }
@@ -315,7 +318,9 @@ class AndroidSerialCommunication(private val context: Context) : SerialCommunica
             // Flush buffers
             val emptyBuf = ByteArray(1)
             usbConnection?.bulkTransfer(inEndpoint, emptyBuf, 1, 1)
-            
+
+            startReading()
+
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing serial connection", e)
             e.printStackTrace()
@@ -345,11 +350,9 @@ class AndroidSerialCommunication(private val context: Context) : SerialCommunica
                     notifyOutput("Retry failed to send command: $command")
                 } else {
                     notifyOutput("Retry successful: $command, Bytes sent: $retryResult")
-                    readResponse()
                 }
             } else {
                 notifyOutput("Command sent successfully: $command, Bytes sent: $result")
-                readResponse()
             }
         } catch (e: Exception) {
             notifyOutput("Error sending command: ${e.message}")
@@ -357,39 +360,60 @@ class AndroidSerialCommunication(private val context: Context) : SerialCommunica
         }
     }
 
-    private fun readResponse() {
-        if (inEndpoint == null) return
-        
+    override fun setScreenPacketListener(listener: ((ByteArray) -> Unit)?) {
+        screenPacketListener = listener
+    }
+
+    override fun isConnected(): Boolean = usbConnection != null && outEndpoint != null
+
+    /** Raw bytes, no newline appended — keystrokes for the device UI. */
+    override fun sendRaw(bytes: ByteArray) {
+        val conn = usbConnection ?: return
+        val ep = outEndpoint ?: return
         try {
-            val buffer = ByteArray(64)
-            var totalRead = 0
-            var attempts = 3
-            
-            while (attempts > 0) {
-                val result = usbConnection?.bulkTransfer(inEndpoint, buffer, buffer.size, TIMEOUT) ?: -1
-                
-                if (result > 0) {
-                    val response = String(buffer, 0, result)
-                    notifyOutput("< $response")
-                    totalRead += result
-                    if (response.contains('\n')) break
-                } else {
-                    attempts--
-                }
-                
-                if (totalRead == 0 && attempts == 0) {
-                    notifyOutput("No response received after 3 attempts")
-                }
-            }
+            conn.bulkTransfer(ep, bytes, bytes.size, TIMEOUT)
         } catch (e: Exception) {
-            notifyOutput("Error reading response: ${e.message}")
-            e.printStackTrace()
+            Log.e(TAG, "sendRaw failed", e)
         }
+    }
+
+    /**
+     * Single reader for the IN endpoint: text lines go to the terminal, 0xAA-framed
+     * binary blocks (LOG_PACKET_HEADER, byte[1] = total size) go to the screen mirror.
+     */
+    private fun startReading() {
+        stopReading()
+        reading = true
+        readThread = Thread {
+            val rawBuf = ByteArray(4096)
+            val framer = SerialFramer(
+                onLine = { notifyOutput(it) },
+                onPacket = { screenPacketListener?.invoke(it) }
+            )
+            while (reading) {
+                val conn = usbConnection
+                val ep = inEndpoint
+                if (conn == null || ep == null) break
+                val read = try {
+                    conn.bulkTransfer(ep, rawBuf, rawBuf.size, 100)
+                } catch (e: Exception) {
+                    break
+                }
+                if (read > 0) framer.feed(rawBuf, read)
+            }
+        }.also { it.isDaemon = true; it.start() }
+    }
+
+    private fun stopReading() {
+        reading = false
+        readThread?.join(400)
+        readThread = null
     }
 
     override fun disconnect() {
         try {
             Log.d(TAG, "Disconnecting USB device")
+            stopReading()
             usbConnection?.releaseInterface(usbInterface)
             usbConnection?.close()
             usbConnection = null

@@ -50,17 +50,25 @@ jobs:
       run: |
         ./gradlew clean assembleRelease
 
+    # Unsigned release builds land as app-release-unsigned.apk, so glob instead of
+    # hardcoding the name.
     - name: Verify APK exists
       id: verify-apk
       run: |
-        APK_PATH="composeApp/build/outputs/apk/release/composeApp-release.apk"
-        if [ ! -f "$APK_PATH" ]; then
-          echo "ERROR: APK not found at $APK_PATH"
+        APK_PATH=$(find app/build/outputs/apk/release -name '*.apk' | head -1)
+        if [ -z "$APK_PATH" ]; then
+          echo "ERROR: no APK in app/build/outputs/apk/release"
           find . -name '*.apk' || true
           exit 1
         fi
         echo "APK exists at: $APK_PATH"
         echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk-release
+        path: app/build/outputs/apk/release/*.apk
 
     - name: Upload to Release
       uses: softprops/action-gh-release@v1
