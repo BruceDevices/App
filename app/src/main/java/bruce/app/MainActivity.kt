@@ -57,7 +57,8 @@ import android.content.res.Configuration
 data class DeviceInfo(
     val id: String,
     val name: String,
-    val category: String
+    val category: String,
+    val family: String
 )
 
 data class SerialCommand(
@@ -417,6 +418,7 @@ class MainActivity : ComponentActivity() {
                                         uploadFirmware(
                                             context = context,
                                             deviceId = selectedDevice,
+                                            family = deviceList.find { it.id == selectedDevice }?.family ?: "ESP32-S3",
                                             baudRate = baudRate,
                                             onStatusChange = { status ->
                                                 terminalOutput = terminalOutput + "> $status"
@@ -1459,7 +1461,7 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun uploadFirmware(context: android.content.Context, deviceId: String, baudRate: String, onStatusChange: (String) -> Unit, onLoadingChange: (Boolean) -> Unit, onInstallationComplete: () -> Unit) {
+    private fun uploadFirmware(context: android.content.Context, deviceId: String, family: String, baudRate: String, onStatusChange: (String) -> Unit, onLoadingChange: (Boolean) -> Unit, onInstallationComplete: () -> Unit) {
         onLoadingChange(true)
         onStatusChange("Starting firmware download for device: $deviceId...")
         
@@ -1483,14 +1485,17 @@ class MainActivity : ComponentActivity() {
                 withContext(Dispatchers.Main) {
                     onStatusChange("Firmware saved to: $firmwarePath")
                     onStatusChange("Preparing esptool with arguments:")
-                    onStatusChange("   Chip: ESP32-S3")
+                    onStatusChange("   Chip: $family")
                     onStatusChange("   Baud Rate: $baudRate bps")
                     onStatusChange("   File: ${firmwarePath.substringAfterLast("/")}")
                     onStatusChange("Checking USB connection...")
                 }
                 
-                // Flash the firmware
-                val argument = "--chip esp32s3 --baud $baudRate --before default_reset --after hard_reset --no-stub write_flash -z 0x0 $firmwarePath"
+                // Flash the firmware. esptool chip id is the family lowercased without
+                // separators ("ESP32-S3" -> esp32s3, "ESP32" -> esp32, "ESP32-C5" -> esp32c5).
+                // Merged Bruce images flash at offset 0x0 for every family (matches the web flasher).
+                val chip = family.lowercase().replace("-", "").replace(" ", "")
+                val argument = "--chip $chip --baud $baudRate --before default_reset --after hard_reset --no-stub write_flash -z 0x0 $firmwarePath"
                 
                 withContext(Dispatchers.Main) {
                     onStatusChange("Starting firmware upload process...")
@@ -1550,7 +1555,8 @@ class MainActivity : ComponentActivity() {
                             DeviceInfo(
                                 id = device.getString("id"),
                                 name = device.getString("name"),
-                                category = category
+                                category = category,
+                                family = device.optString("family", "ESP32-S3")
                             )
                         )
                     }
